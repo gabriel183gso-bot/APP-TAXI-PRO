@@ -13,6 +13,7 @@ const INITIAL_STATE: GlobalState = {
     userName: 'Motorista',
   },
   goal: null,
+  goalHistory: [],
 };
 
 export interface StorageHook {
@@ -82,7 +83,7 @@ export function useStorage(): StorageHook {
     const duration = Math.floor((endTime - state.rideStartTime) / 1000);
 
     const newRide: Ride = {
-      id: crypto.randomUUID(),
+      id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15),
       value,
       paymentMethod,
       startTime: state.rideStartTime,
@@ -114,7 +115,28 @@ export function useStorage(): StorageHook {
   };
 
   const setGoal = (goal: Goal | null) => {
-    updateState({ goal });
+    if (state.goal && goal !== state.goal) {
+      // Calculate achieved for the current goal before archiving
+      const now = Date.now();
+      const ridesInPeriod = state.rides.filter(r => r.startTime >= state.goal!.startDate && r.startTime <= now);
+      const achieved = state.goal.type === 'value' 
+        ? ridesInPeriod.reduce((sum, r) => sum + r.value, 0)
+        : ridesInPeriod.length;
+
+      const archivedGoal = {
+        id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15),
+        ...state.goal,
+        endDate: now,
+        achieved
+      };
+
+      updateState({ 
+        goal, 
+        goalHistory: [archivedGoal, ...(state.goalHistory || [])] 
+      });
+    } else {
+      updateState({ goal });
+    }
   };
 
   const clearAllData = () => {
@@ -130,7 +152,7 @@ export function useStorage(): StorageHook {
 
   const addCheckIn = (note?: string, location?: string) => {
     const newCheckIn = {
-      id: crypto.randomUUID(),
+      id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15),
       timestamp: Date.now(),
       note,
       location,

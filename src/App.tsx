@@ -49,6 +49,15 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
   card: 'Cartão'
 };
 
+const safeFormat = (date: any, formatStr: string) => {
+  try {
+    if (!date) return '--:--';
+    return format(new Date(date), formatStr);
+  } catch (e) {
+    return '--:--';
+  }
+};
+
 // --- UI Components ---
 
 const Card = ({ children, className, onClick }: { children: ReactNode, className?: string, onClick?: () => void, key?: string | number }) => (
@@ -119,28 +128,30 @@ const RideSkeleton = () => (
 const Modal = ({ isOpen, onClose, title, children }: { isOpen: boolean, onClose: () => void, title: string, children: ReactNode }) => (
   <AnimatePresence>
     {isOpen && (
-      <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center p-4">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="absolute inset-0 bg-black/80 backdrop-blur-md"
+          className="absolute inset-0 bg-black/85 backdrop-blur-sm"
         />
         <motion.div 
-          initial={{ y: '100%' }}
-          animate={{ y: 0 }}
-          exit={{ y: '100%' }}
-          transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="relative w-full max-w-md glass-dark rounded-t-2xl sm:rounded-2xl p-5 max-h-[90vh] overflow-y-auto no-scrollbar border border-white/[0.08]"
+          initial={{ opacity: 0, scale: 0.9, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.9, y: 20 }}
+          transition={{ type: 'spring', damping: 25, stiffness: 400 }}
+          className="relative w-full max-w-[90%] sm:max-w-md glass-dark rounded-3xl p-6 max-h-[80vh] overflow-y-auto no-scrollbar border border-white/[0.1] shadow-2xl shadow-black/50"
         >
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-bold tracking-tight">{title}</h3>
-            <button onClick={onClose} className="p-2 bg-white/5 rounded-full hover:bg-white/10 transition-all active:scale-75">
-              <X size={20} />
+          <div className="flex justify-between items-center mb-5">
+            <h3 className="text-lg font-bold tracking-tight text-white/90">{title}</h3>
+            <button onClick={onClose} className="p-2.5 bg-white/5 rounded-full hover:bg-white/10 transition-all active:scale-75 text-white/40">
+              <X size={18} />
             </button>
           </div>
-          {children}
+          <div className="pb-2">
+            {children}
+          </div>
         </motion.div>
       </div>
     )}
@@ -447,7 +458,7 @@ const RideScreen = ({ storage }: { storage: StorageHook }) => {
 
   return (
     <div className="fixed inset-0 z-50 bg-black flex flex-col p-6 font-sans">
-      <div className="flex-1 flex flex-col items-center justify-center space-y-8">
+      <div className="flex-1 flex flex-col items-center justify-center space-y-6">
         <div className="flex items-center gap-3 px-4 py-2 bg-accent/10 border border-accent/20 rounded-full">
           <div className="w-2 h-2 bg-accent rounded-full animate-pulse shadow-[0_0_10px_rgba(0,255,133,0.6)]" />
           <p className="label-caps text-accent mb-0 tracking-[0.2em]">Corrida em Curso</p>
@@ -459,7 +470,7 @@ const RideScreen = ({ storage }: { storage: StorageHook }) => {
         </div>
         
         <div className="flex flex-col items-center gap-2 glass px-6 py-3 rounded-2xl">
-          <p className="label-caps text-white/60 text-[11px]">Início às {format(state.rideStartTime || Date.now(), 'HH:mm')}</p>
+          <p className="label-caps text-white/60 text-[11px]">Início às {safeFormat(state.rideStartTime || Date.now(), 'HH:mm')}</p>
         </div>
         
         {elapsed > 3600 * 2 && (
@@ -499,7 +510,7 @@ const RideScreen = ({ storage }: { storage: StorageHook }) => {
         onClose={() => setShowCancelConfirm(true)} 
         title="Finalizar Corrida"
       >
-        <div className="space-y-8">
+        <div className="space-y-6">
           <div>
             <label className="label-caps block mb-3 opacity-60">Valor da Corrida</label>
             <div className="relative">
@@ -633,30 +644,140 @@ const WalletScreen = ({ storage }: { storage: StorageHook }) => {
 
   const generatePDF = () => {
     const doc = new jsPDF();
-    const title = `Relatório de Ganhos - ${filter === 'custom' ? `${customRange.start} até ${customRange.end}` : filterLabels[filter]}`;
+    const accentColor = [0, 255, 133]; // RGB for #00FF85
     
-    doc.setFontSize(18);
-    doc.text(title, 14, 22);
+    // Header background
+    doc.setFillColor(20, 20, 20);
+    doc.rect(0, 0, 210, 45, 'F');
     
+    // Logo/Title
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(24);
+    doc.setFont('helvetica', 'bold');
+    doc.text('MOTOTRACK PRO', 14, 25);
+    
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
+    doc.text('RELATÓRIO DE ATIVIDADES E GANHOS', 14, 33);
+    
+    // Period Info
+    doc.setTextColor(150, 150, 150);
+    doc.setFontSize(9);
+    const periodText = filter === 'custom' 
+      ? `Período: ${safeFormat(customRange.start, 'dd/MM/yyyy')} até ${safeFormat(customRange.end, 'dd/MM/yyyy')}`
+      : `Período: ${filterLabels[filter]}`;
+    doc.text(periodText, 140, 25);
+    doc.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 140, 32);
+
+    // Summary Section Title
+    doc.setTextColor(40, 40, 40);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('RESUMO DO PERÍODO', 14, 60);
+
+    // Summary Boxes
+    const boxWidth = 58;
+    const boxHeight = 28;
+    const startY = 65;
+
+    // Total Earnings Box
+    doc.setDrawColor(230, 230, 230);
+    doc.setFillColor(250, 250, 250);
+    doc.roundedRect(14, startY, boxWidth, boxHeight, 3, 3, 'FD');
+    doc.setFontSize(8);
+    doc.setTextColor(120, 120, 120);
+    doc.text('TOTAL GANHO', 19, startY + 10);
+    doc.setFontSize(16);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`R$ ${totalEarnings.toFixed(2)}`, 19, startY + 20);
+
+    // Total Rides Box
+    doc.roundedRect(14 + boxWidth + 5, startY, boxWidth, boxHeight, 3, 3, 'FD');
+    doc.setFontSize(8);
+    doc.setTextColor(120, 120, 120);
+    doc.text('TOTAL CORRIDAS', 19 + boxWidth + 5, startY + 10);
+    doc.setFontSize(16);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`${filteredRides.length}`, 19 + boxWidth + 5, startY + 20);
+
+    // Average Box
+    doc.roundedRect(14 + (boxWidth + 5) * 2, startY, boxWidth, boxHeight, 3, 3, 'FD');
+    doc.setFontSize(8);
+    doc.setTextColor(120, 120, 120);
+    doc.text('MÉDIA POR CORRIDA', 19 + (boxWidth + 5) * 2, startY + 10);
+    doc.setFontSize(16);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`R$ ${avgPerRide.toFixed(2)}`, 19 + (boxWidth + 5) * 2, startY + 20);
+
+    // Table
     const tableData = filteredRides.map((r: Ride) => [
-      format(r.startTime, 'dd/MM/yyyy HH:mm'),
+      safeFormat(r.startTime, 'dd/MM/yyyy HH:mm'),
       PAYMENT_METHOD_LABELS[r.paymentMethod].toUpperCase(),
       `R$ ${r.value.toFixed(2)}`
     ]);
 
     autoTable(doc, {
-      startY: 30,
-      head: [['Data/Hora', 'Pagamento', 'Valor']],
+      startY: 105,
+      head: [['DATA E HORA', 'FORMA DE PAGAMENTO', 'VALOR']],
       body: tableData,
-      foot: [['Total', '', `R$ ${totalEarnings.toFixed(2)}`]]
+      theme: 'grid',
+      headStyles: {
+        fillColor: [20, 20, 20],
+        textColor: [255, 255, 255],
+        fontSize: 9,
+        fontStyle: 'bold',
+        halign: 'center',
+        cellPadding: 5
+      },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 60 },
+        1: { halign: 'center' },
+        2: { halign: 'right', fontStyle: 'bold', cellWidth: 40 }
+      },
+      styles: {
+        fontSize: 8,
+        cellPadding: 4,
+        font: 'helvetica'
+      },
+      alternateRowStyles: {
+        fillColor: [252, 252, 252]
+      },
+      foot: [['TOTAL', '', `R$ ${totalEarnings.toFixed(2)}`]],
+      footStyles: {
+        fillColor: [245, 245, 245],
+        textColor: [0, 0, 0],
+        fontSize: 10,
+        fontStyle: 'bold',
+        halign: 'right',
+        cellPadding: 5
+      }
     });
 
-    doc.save(`relatorio_${filter}_${format(new Date(), 'yyyyMMdd')}.pdf`);
+    // Footer with page numbers
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(150, 150, 150);
+      doc.text(
+        `MotoTrack Pro - Gerenciamento Financeiro para Mototaxistas`,
+        14,
+        285
+      );
+      doc.text(
+        `Página ${i} de ${pageCount}`,
+        180,
+        285
+      );
+    }
+
+    doc.save(`relatorio_mototrack_${filter}_${format(new Date(), 'yyyyMMdd')}.pdf`);
     setIsReportModalOpen(false);
   };
 
   return (
-    <div className="space-y-8 pb-40">
+    <div className="space-y-6 pb-32">
       <header className="px-2 flex justify-between items-center">
         <h1 className="text-2xl font-extrabold tracking-tighter">Carteira</h1>
         <button 
@@ -671,23 +792,23 @@ const WalletScreen = ({ storage }: { storage: StorageHook }) => {
         </button>
       </header>
 
-      <Card className="bg-gradient-to-br from-accent/[0.05] to-transparent border-l-4 border-l-accent p-6">
+      <Card className="bg-gradient-to-br from-accent/[0.05] to-transparent border-l-4 border-l-accent p-5">
         <p className="label-caps text-accent mb-2">Ganhos no Período</p>
         <div className="flex items-baseline gap-1.5">
           <span className="text-white/20 font-bold text-xl">R$</span>
           <h2 className="text-2xl font-extrabold tracking-tighter leading-none">{totalEarnings.toFixed(2)}</h2>
         </div>
         <p className="text-[10px] font-bold text-white/30 mt-3 uppercase tracking-widest">
-          {filter === 'today' ? 'Hoje' : filter === '7days' ? 'Últimos 7 dias' : filter === '30days' ? 'Últimos 30 dias' : `${format(new Date(customRange.start), 'dd/MM')} até ${format(new Date(customRange.end), 'dd/MM')}`}
+          {filter === 'today' ? 'Hoje' : filter === '7days' ? 'Últimos 7 dias' : filter === '30days' ? 'Últimos 30 dias' : `${safeFormat(customRange.start, 'dd/MM')} até ${safeFormat(customRange.end, 'dd/MM')}`}
         </p>
       </Card>
 
       <div className="grid grid-cols-2 gap-4">
-        <Card className="p-6">
+        <Card className="p-5">
           <p className="label-caps opacity-40 mb-2">Corridas</p>
           <p className="text-xl font-mono font-bold tracking-tighter">{filteredRides.length.toString().padStart(2, '0')}</p>
         </Card>
-        <Card className="p-6">
+        <Card className="p-5">
           <p className="label-caps opacity-40 mb-2">Média</p>
           <div className="flex items-baseline gap-1">
             <span className="text-white/20 text-xs font-mono">R$</span>
@@ -696,7 +817,7 @@ const WalletScreen = ({ storage }: { storage: StorageHook }) => {
         </Card>
       </div>
 
-      <Card className="p-6">
+      <Card className="p-5">
         <p className="label-caps opacity-40 mb-8">Distribuição de Pagamentos</p>
         {paymentData.length > 0 ? (
           <div className="flex flex-col sm:flex-row items-center gap-8">
@@ -735,6 +856,48 @@ const WalletScreen = ({ storage }: { storage: StorageHook }) => {
             Sem dados para exibir
           </div>
         )}
+      </Card>
+
+      <Card className="p-5">
+        <p className="label-caps opacity-40 mb-8">Histórico de Metas</p>
+        <div className="space-y-6">
+          {(state.goalHistory || []).length > 0 ? (
+            (state.goalHistory || []).slice(0, 5).map((entry) => {
+              const progress = Math.min(100, (entry.achieved / entry.target) * 100);
+              return (
+                <div key={entry.id} className="space-y-3">
+                  <div className="flex justify-between items-end">
+                    <div>
+                      <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/20 mb-1">
+                        {entry.period === 'daily' ? 'Diária' : entry.period === 'weekly' ? 'Semanal' : 'Mensal'} • {safeFormat(entry.startDate, 'dd/MM')} - {safeFormat(entry.endDate, 'dd/MM')}
+                      </p>
+                      <p className="text-sm font-extrabold tracking-tight">
+                        {entry.type === 'value' ? `R$ ${entry.target}` : `${entry.target} Corridas`}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className={cn("text-base font-mono font-bold tracking-tighter", progress >= 100 ? "text-accent" : "text-white/40")}>
+                        {progress.toFixed(0)}%
+                      </p>
+                      <p className="text-[9px] opacity-20 uppercase font-bold tracking-tighter">
+                        {entry.type === 'value' ? `R$ ${entry.achieved}` : `${entry.achieved} Feitas`}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="h-1.5 w-full bg-white/[0.03] rounded-full overflow-hidden border border-white/[0.05]">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${progress}%` }}
+                      className={cn("h-full rounded-full", progress >= 100 ? "bg-accent shadow-[0_0_10px_rgba(0,255,133,0.3)]" : "bg-white/10")}
+                    />
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="py-12 text-center opacity-10 label-caps text-[10px] tracking-[0.3em]">Nenhuma meta anterior</div>
+          )}
+        </div>
       </Card>
 
       <Modal 
@@ -841,7 +1004,7 @@ const HistoryScreen = ({ storage }: { storage: StorageHook }) => {
   };
 
   return (
-    <div className="space-y-8 pb-40">
+    <div className="space-y-6 pb-32">
       <header className="px-2">
         <h1 className="text-2xl font-extrabold tracking-tighter">Histórico</h1>
         <p className="label-caps mt-2 opacity-40">{(state.rides || []).length} Atividades registradas</p>
@@ -865,7 +1028,7 @@ const HistoryScreen = ({ storage }: { storage: StorageHook }) => {
                       <p className="font-mono font-bold text-lg tracking-tighter">{ride.value.toFixed(2)}</p>
                     </div>
                     <p className="text-[10px] font-extrabold uppercase tracking-[0.15em] text-white/30 mt-0.5">
-                      {format(ride.startTime, 'HH:mm')} • {formatDuration(ride.duration)}
+                      {safeFormat(ride.startTime, 'HH:mm')} • {formatDuration(ride.duration)}
                     </p>
                   </div>
                 </div>
@@ -893,19 +1056,19 @@ const HistoryScreen = ({ storage }: { storage: StorageHook }) => {
         title="Detalhes da Corrida"
       >
         {editingRide && (
-          <div className="space-y-8">
+          <div className="space-y-6">
             <div className="grid grid-cols-2 gap-6 p-5 bg-white/[0.02] rounded-2xl border border-white/[0.05]">
               <div className="space-y-2">
                 <p className="label-caps opacity-40">Início</p>
-                <p className="font-mono font-bold text-base tracking-tighter">{format(editingRide.startTime, 'HH:mm:ss')}</p>
+                <p className="font-mono font-bold text-base tracking-tighter">{safeFormat(editingRide.startTime, 'HH:mm:ss')}</p>
               </div>
               <div className="space-y-2 text-right">
                 <p className="label-caps opacity-40">Fim</p>
-                <p className="font-mono font-bold text-base tracking-tighter">{format(editingRide.endTime, 'HH:mm:ss')}</p>
+                <p className="font-mono font-bold text-base tracking-tighter">{safeFormat(editingRide.endTime, 'HH:mm:ss')}</p>
               </div>
               <div className="space-y-2">
                 <p className="label-caps opacity-40">Data</p>
-                <p className="font-mono font-bold text-base tracking-tighter">{format(editingRide.startTime, 'dd/MM/yy')}</p>
+                <p className="font-mono font-bold text-base tracking-tighter">{safeFormat(editingRide.startTime, 'dd/MM/yy')}</p>
               </div>
               <div className="space-y-2 text-right">
                 <p className="label-caps opacity-40">Duração</p>
@@ -1014,13 +1177,13 @@ const MenuScreen = ({ storage }: { storage: StorageHook }) => {
   const [goalTarget, setGoalTarget] = useState(state.goal?.target.toString() || '');
 
   return (
-    <div className="space-y-8 pb-40">
+    <div className="space-y-6 pb-32">
       <header className="px-2">
         <h1 className="text-2xl font-extrabold tracking-tighter">Ajustes</h1>
       </header>
 
       <div className="space-y-4">
-        <Card onClick={() => setIsEditingName(true)} className="flex items-center justify-between border-white/[0.05] p-6">
+        <Card onClick={() => setIsEditingName(true)} className="flex items-center justify-between border-white/[0.05] p-5">
           <div>
             <p className="label-caps mb-1.5 opacity-40">Motorista</p>
             <p className="text-lg font-extrabold tracking-tight">{state.settings.userName}</p>
@@ -1030,7 +1193,7 @@ const MenuScreen = ({ storage }: { storage: StorageHook }) => {
           </div>
         </Card>
 
-        <Card onClick={() => setShowGoalModal(true)} className="flex items-center justify-between border-white/[0.05] p-6">
+        <Card onClick={() => setShowGoalModal(true)} className="flex items-center justify-between border-white/[0.05] p-5">
           <div>
             <p className="label-caps mb-1.5 opacity-40">Meta Ativa</p>
             <p className="text-lg font-extrabold tracking-tight">
@@ -1076,7 +1239,7 @@ const MenuScreen = ({ storage }: { storage: StorageHook }) => {
             (state.checkins || []).map((c) => (
               <div key={c.id} className="p-4 bg-white/[0.03] rounded-2xl border border-white/[0.05] flex justify-between items-start">
                 <div className="space-y-1">
-                  <p className="text-xs font-bold text-accent">{format(c.timestamp, 'dd/MM/yyyy HH:mm')}</p>
+                  <p className="text-xs font-bold text-accent">{safeFormat(c.timestamp, 'dd/MM/yyyy HH:mm')}</p>
                   {c.location && <p className="text-[10px] opacity-40 flex items-center gap-1"><MapPin size={10} /> {c.location}</p>}
                   {c.note && <p className="text-xs opacity-80 mt-2 italic">"{c.note}"</p>}
                 </div>
@@ -1114,7 +1277,7 @@ const MenuScreen = ({ storage }: { storage: StorageHook }) => {
       </Modal>
 
       <Modal isOpen={isEditingName} onClose={() => setIsEditingName(false)} title="Nome do Motorista">
-        <div className="space-y-8">
+        <div className="space-y-6">
           <div className="space-y-3">
             <label className="label-caps opacity-60 ml-2">Seu Nome</label>
             <input 
@@ -1138,7 +1301,7 @@ const MenuScreen = ({ storage }: { storage: StorageHook }) => {
       </Modal>
 
       <Modal isOpen={showGoalModal} onClose={() => setShowGoalModal(false)} title="Definir Meta">
-        <div className="space-y-8">
+        <div className="space-y-6">
           <div className="space-y-4">
             <label className="label-caps opacity-60 ml-2">Tipo de Meta</label>
             <div className="flex p-1.5 bg-white/[0.03] rounded-2xl border border-white/[0.05]">

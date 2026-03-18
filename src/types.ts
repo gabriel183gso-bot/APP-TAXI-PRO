@@ -38,6 +38,16 @@ export interface CheckIn {
   note?: string;
 }
 
+export interface GoalHistoryEntry {
+  id: string;
+  type: 'value' | 'rides';
+  period: GoalPeriod;
+  target: number;
+  startDate: number;
+  endDate: number;
+  achieved: number;
+}
+
 export interface GlobalState {
   appState: AppState;
   workStartTime: number | null;
@@ -46,4 +56,5 @@ export interface GlobalState {
   checkins: CheckIn[];
   settings: UserSettings;
   goal: Goal | null;
+  goalHistory: GoalHistoryEntry[];
 }
